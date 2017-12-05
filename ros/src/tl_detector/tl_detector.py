@@ -10,6 +10,7 @@ from light_classification.tl_classifier import TLClassifier
 import tf
 import cv2
 import yaml
+from math import hypot
 
 STATE_COUNT_THRESHOLD = 3
 
@@ -101,7 +102,14 @@ class TLDetector(object):
 
         """
         #TODO implement
-        return 0
+        min_dist = float("inf")
+        min_index = -1
+        for i, waypoint in enumerate(self.waypoints):
+            dist = hypot(waypoint[0] - pose[0], waypoint[1] - pose[1])
+            if dist < min_dist:
+                min_dist = dist
+                min_index = i
+        return min_index
 
     def get_light_state(self, light):
         """Determines the current color of the traffic light
