@@ -104,11 +104,12 @@ class TLDetector(object):
         #TODO implement
         min_dist = float("inf")
         min_index = -1
-        for i, waypoint in enumerate(self.waypoints):
-            dist = hypot(waypoint[0] - pose[0], waypoint[1] - pose[1])
-            if dist < min_dist:
-                min_dist = dist
-                min_index = i
+        if self.waypoints is not None:
+            for i, waypoint in enumerate(self.waypoints):
+                dist = hypot(waypoint[0] - pose[0], waypoint[1] - pose[1])
+                if dist < min_dist:
+                    min_dist = dist
+                    min_index = i
         return min_index
 
     def get_light_state(self, light):
@@ -147,7 +148,9 @@ class TLDetector(object):
             car_position = self.get_closest_waypoint(self.pose.pose)
 
         #TODO find the closest visible traffic light (if one exists)
-        print(self.config)
+        light_wp = None
+        for i, stop_line in enumerate(stop_line_positions):
+            distance = hypot
 
         if light:
             state = self.get_light_state(light)
