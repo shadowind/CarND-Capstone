@@ -150,7 +150,16 @@ class TLDetector(object):
         #TODO find the closest visible traffic light (if one exists)
         light_wp = None
         for i, stop_line in enumerate(stop_line_positions):
-            distance = hypot
+            distance = hypot(stop_line[0] - self.pose.pose.position.x, stop_line[1] - self.pose.pose.position.y)
+            if distance > 200:
+                continue
+
+            stop_line_wp = self.get_closest_waypoint([stop_line[0], stop_line[1]])
+            if stop_line_wp >= car_position:
+                # ahead
+                if light_wp == -1 or light_wp > stop_line_wp:
+                    light_wp = stop_line_wp
+                    light = self.lights[i]
 
         if light:
             state = self.get_light_state(light)
