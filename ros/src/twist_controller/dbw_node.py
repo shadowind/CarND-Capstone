@@ -3,8 +3,10 @@
 import rospy
 from std_msgs.msg import Bool
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, PoseStamped
+from styx_msgs.msg import Lane
 import math
+import numpy as np
 
 from twist_controller import Controller
 
@@ -35,16 +37,19 @@ class DBWNode(object):
     def __init__(self):
         rospy.init_node('dbw_node')
 
-        vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35)
-        fuel_capacity = rospy.get_param('~fuel_capacity', 13.5)
-        brake_deadband = rospy.get_param('~brake_deadband', .1)
-        decel_limit = rospy.get_param('~decel_limit', -5)
-        accel_limit = rospy.get_param('~accel_limit', 1.)
-        wheel_radius = rospy.get_param('~wheel_radius', 0.2413)
-        wheel_base = rospy.get_param('~wheel_base', 2.8498)
-        steer_ratio = rospy.get_param('~steer_ratio', 14.8)
-        max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
-        max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
+        vehicle_config = {
+        'vehicle_mass': rospy.get_param('~vehicle_mass', 1736.35),
+        'fuel_capacity' : rospy.get_param('~fuel_capacity', 13.5),
+        'brake_deadband' : rospy.get_param('~brake_deadband', .1),
+        'decel_limit' : rospy.get_param('~decel_limit', -5),
+        'accel_limit' : rospy.get_param('~accel_limit', 1.),
+        'wheel_radius' : rospy.get_param('~wheel_radius', 0.2413),
+        'wheel_base' : rospy.get_param('~wheel_base', 2.8498),
+        'steer_ratio' : rospy.get_param('~steer_ratio', 14.8),
+        'max_lat_accel' : rospy.get_param('~max_lat_accel', 3.),
+        'max_steer_angle' : rospy.get_param('~max_steer_angle', 8.),
+        'min_speed' : rospy.get_param('~min_speed', 0.5)
+        }
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
                                          SteeringCmd, queue_size=1)
@@ -53,25 +58,45 @@ class DBWNode(object):
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
                                          BrakeCmd, queue_size=1)
 
-        # TODO: Create `TwistController` object
-        # self.controller = TwistController(<Arguments you wish to provide>)
+        # Create `TwistController` object
+        self.controller = Controller(**vehicle_config)
+        
+        self.prev_time_stamp = rospy.get_rostime()
 
-        # TODO: Subscribe to all the topics you need to
-
+        # Subscribe to all the topics need to
+        self.new_vel = None
+        self.twist_cmd_sub = rospy.Subscriber("/twist_cmd", TwistStamped, self.twist_cmd_callback)
+        
+        self.cur_vel = None
+        self.vel_cmd_sub = rospy.Subscriber("/current_velocity", TwistStamped, self.cur_vel_cmd_callback)
+        
+        self.dbw_enabled = False
+        self.dbw_status_sub = rospy.Subscriber("/vehicle/dbw_enabled", Bool, self.dbw_status_callback)
+        
+        self.cur_pose = None
+        self.cur_pose_sub = rospy.Subscriber("/current_pose", PoseStamped, self.cur_pose_callback)
+        
+        self.final_way_pts = None
+        self.final_way_pts_sub = rospy.Subscriber("/final_waypoints", Lane, self.final_way_pts_callback)
+        
         self.loop()
 
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
         while not rospy.is_shutdown():
-            # TODO: Get predicted throttle, brake, and steering using `twist_controller`
+            # Get predicted throttle, brake, and steering using `twist_controller`
             # You should only publish the control commands if dbw is enabled
-            # throttle, brake, steering = self.controller.control(<proposed linear velocity>,
-            #                                                     <proposed angular velocity>,
-            #                                                     <current linear velocity>,
-            #                                                     <dbw status>,
-            #                                                     <any other argument you need>)
-            # if <dbw is enabled>:
-            #   self.publish(throttle, brake, steer)
+            if (self.cur_vel is not None) and (self.new_vel is not None) and (self.final_way_pts is not None):
+                cur_time_stamp = rospy.get_rostime()
+                duration = cur_time_stamp - self.prev_time_stamp
+                duration_in_seconds = duration.secs + (1e-9 * duration.nsecs)
+                self.prev_time_stamp = cur_time_stamp
+                throttle, brake, steering = self.controller.control(self.new_vel.twist.linear.x,self.new_vel.twist.angular.z,self.cur_vel.twist.linear.x,get_cte(),duration)
+                if not self.dbw_enabled:
+                    #reset contoller
+                    self.controller.reset()
+                if self.dbw_enabled:
+                    self.publish(throttle, brake, steer)
             rate.sleep()
 
     def publish(self, throttle, brake, steer):
@@ -91,7 +116,50 @@ class DBWNode(object):
         bcmd.pedal_cmd_type = BrakeCmd.CMD_TORQUE
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
+    
 
+    def twist_cmd_callback(self, data):
+        self.new_vel = data
+        
+    def cur_vel_cmd_callback(self, data):
+	    self.cur_vel = data
+	    
+    def dbw_status_callback(self, data):
+	    self.dbw_enabled = data.data
+	
+    def cur_pose_callback(self, data):
+	    self.cur_pose = data
+
+    def final_way_pts_callback(self, data):
+        self.final_way_pts = data
+        
+    def get_cte():
+        #transform way points and car pose into cars co-coordinate system
+        origin = self.final_way_pts[0].pose.pose.position
+        
+        #Shift way points
+        xy_way_pts = list(map(lambda way_pt: [way_pt.pose.pose.position.x, way_pt.pose.pose.position.y], self.final_way_pts))
+        shifted_way_pts = xy_way_pts - np.array([origin.x, origin.y])
+        
+        #Rotate way points
+        rotatation_angle = np.arctan2(shifted_way_pts[10, 1], shifted_way_pts[10, 0])#take 10 points to calculate angle
+        rotation_matrix = np.array([[np.cos(rotatation_angle), -np.sin(rotatation_angle)], [np.sin(rotatation_angle), np.cos(rotatation_angle)]])
+        transformed_way_pts = np.dot(shifted_way_pts, rotation_matrix)
+        
+        #Shift car pose
+        shifted_car_pose = np.array([self.cur_pose.pose.position.x - origin.x, self.cur_pose.pose.position.y - origin.y])
+        
+        #Rotate car pose
+        rotated_car_pose = np.dot(shifted_car_pose, rotation_matrix)
+        
+        #Find CTE
+        #Fit a 2 degree polynomial through the transformed way points to get the y(cte) value of the car
+        coefficients = np.polyfit(transformed_way_pts[:, 0], transformed_way_pts[:, 1], 2)
+        
+        expected_y_val = np.polyval(coefficients, rotated_car_pose[0])
+        actual_y_val = rotated_pose[1]
+        
+        return (expected_y_val - actual_y_val)
 
 if __name__ == '__main__':
     DBWNode()
