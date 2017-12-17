@@ -1,3 +1,4 @@
+import rospy
 from pid import PID
 from lowpass import LowPassFilter
 from yaw_controller import YawController
@@ -24,29 +25,33 @@ class Controller(object):
         #init controllers
         self.pid = PID(0.4, 0.0, 0.02, self.decel_limit, self.accel_limit)
         self.yaw_controller = YawController(self.wheel_base, self.steer_ratio, self.min_speed, self.max_lat_accel, self.max_steer_angle)
+        self.steer_filter = LowPassFilter(tau = 2, ts = 1)
+        self.throttle_lilter = LowPassFilter(tau = 2, ts = 1)
 
     def reset(self):
         self.pid.reset()
          
     def control(self, *args, **kwargs):
         # get all control params
-        new_linear_vel = kwargs[0]
-        new_angular_vel = kwargs[1]
-        cur_linear_vel = kwargs[2]
-        cte = kwargs[3]
-        duration = kwargs[4]
+        new_linear_vel = args[0]
+        new_angular_vel = args[1]
+        cur_linear_vel = args[2]
+        cte = args[3]
+        duration = args[4]
         acceleration_update = steering_update = brake_update = 0.0
         
         
         #get the strring angle update from yaw controller
         steering_update = self.yaw_controller.get_steering(new_linear_vel, new_angular_vel, cur_linear_vel)
+        steering_update = self.steer_filter.filt(steering_update)
         
         #get acceleration update from pid 
-        acceleration_update = self.pid((new_linear_vel - cur_linear_vel), duration)
+        acceleration_update = self.pid.step((new_linear_vel - cur_linear_vel), duration)
+        acceleration_update = self.throttle_lilter.filt(acceleration_update)
         
         #if we were to decelerate, calculate the break update
         if (acceleration_update <= 0.0 and -1.0*acceleration_update >= self.brake_deadband):
              brake_update = -1.0*acceleration_update * (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY) * self.wheel_radius
             
-        
+        rospy.loginfo("new control info: throttle: %s, brake: %s, steering: %s" %(acceleration_update, brake_update, steering_update))
         return acceleration_update, brake_update, steering_update
