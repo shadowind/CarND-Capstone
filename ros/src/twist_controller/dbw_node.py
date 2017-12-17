@@ -91,12 +91,12 @@ class DBWNode(object):
                 duration = cur_time_stamp - self.prev_time_stamp
                 duration_in_seconds = duration.secs + (1e-9 * duration.nsecs)
                 self.prev_time_stamp = cur_time_stamp
-                throttle, brake, steering = self.controller.control(self.new_vel.twist.linear.x,self.new_vel.twist.angular.z,self.cur_vel.twist.linear.x,get_cte(),duration)
+                throttle, brake, steering = self.controller.control(self.new_vel.twist.linear.x,self.new_vel.twist.angular.z,self.cur_vel.twist.linear.x,self.get_cte(),duration_in_seconds)
                 if not self.dbw_enabled:
                     #reset contoller
                     self.controller.reset()
                 if self.dbw_enabled:
-                    self.publish(throttle, brake, steer)
+                    self.publish(throttle, brake, steering)
             rate.sleep()
 
     def publish(self, throttle, brake, steer):
@@ -131,9 +131,9 @@ class DBWNode(object):
 	    self.cur_pose = data
 
     def final_way_pts_callback(self, data):
-        self.final_way_pts = data
+        self.final_way_pts = data.waypoints
         
-    def get_cte():
+    def get_cte(self):
         #transform way points and car pose into cars co-coordinate system
         origin = self.final_way_pts[0].pose.pose.position
         
@@ -157,7 +157,7 @@ class DBWNode(object):
         coefficients = np.polyfit(transformed_way_pts[:, 0], transformed_way_pts[:, 1], 2)
         
         expected_y_val = np.polyval(coefficients, rotated_car_pose[0])
-        actual_y_val = rotated_pose[1]
+        actual_y_val = rotated_car_pose[1]
         
         return (expected_y_val - actual_y_val)
 
