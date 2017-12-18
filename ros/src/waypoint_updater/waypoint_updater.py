@@ -28,7 +28,7 @@ LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this n
 class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
-        rospy.loginfo('Xiaoyu -Node waypoint_updated started.')
+        rospy.loginfo('Node waypoint_updated started.')
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
@@ -39,7 +39,7 @@ class WaypointUpdater(object):
 
         # TODO: Add other member variables you need below
         # Load waypoint only once
-        self.load_waypoint_once = False
+        self.load_current_pose = False
         # Store the current pose as "PoseStamped" type
         self.current_pose_msg = PoseStamped()
         # Store the current waypoints for only once as "Lane" type
@@ -56,9 +56,9 @@ class WaypointUpdater(object):
 
     def pose_cb(self, msg):
         # TODO: Implement
-        if not self.load_waypoint_once:
+        if not self.load_current_pose:
             # rospy.loginfo("Logging position data, curret_pose. x: %s,y: %s, z: %s" % (msg.pose.position.x, msg.pose.position.y, msg.pose.position.z))
-            self.log_once_done = True
+            self.load_current_pose = True
 
         # Update current pose msg
         self.current_pose_msg = msg
@@ -66,8 +66,6 @@ class WaypointUpdater(object):
 
     def waypoints_cb(self, waypoints):
         # TODO: Implement
-        rospy.loginfo("Logging waypoints data, velocity x:%s" % (waypoints.waypoints[1].twist.twist.linear.x))
-        rospy.loginfo("Waypoints length :%s" % (len(waypoints.waypoints)))
         self.base_waypoints.waypoints = waypoints.waypoints
         self.received_waypoints = True
         # pass
@@ -96,11 +94,7 @@ class WaypointUpdater(object):
                 #Get the information about the waypoint that we will append
                 waypt_to_append = self.base_waypoints.waypoints[idx_waypt_to_append]
                 #current_wp_vel = self.get_waypoint_velocity(waypt_to_append)
-                #current_vel = self.current_velocity
-
-                #new_waypt_vel = min(current_vel+velocity_increment,target_velocity_mps)
                 new_waypt_vel = self.speed_limit
-                rospy.loginfo("new velocity: %s" %(new_waypt_vel))
                 waypt_to_append.twist.twist.linear.x = new_waypt_vel
                 # Append the waypoint to the array of waypoints.
                 array_final_waypoints.waypoints.append(waypt_to_append)
@@ -109,11 +103,11 @@ class WaypointUpdater(object):
             self.final_waypoints_pub.publish(array_final_waypoints)
 
     def get_next_waypoint(self):
-        # Part 1: find the nearst waypoints. To improve efficiency, save the last starting point, and start search from last nearst point ascending
+        # Part 1: find the nearst waypoints. 
         ego_pose = self.current_pose_msg.pose
         waypoints = self.base_waypoints.waypoints
         closest_wp_dist = 10000.0
-        closest_wp_idx = self.last_closest_waypoint_idx
+        closest_wp_idx = -1
         next_wp_idx = -1
         for idx, waypt in enumerate(waypoints):
             delta_x = ego_pose.position.x - waypt.pose.pose.position.x
@@ -124,16 +118,15 @@ class WaypointUpdater(object):
             if (dist_to_wp < closest_wp_dist):
                 closest_wp_dist = dist_to_wp
                 closest_wp_idx = idx
-    # bug here, if more than 1 round, the index should - len(base_waypoints)
         if(closest_wp_idx>0):
-            rospy.loginfo("Logging closest waypoint x: %s,y: %s, z: %s" % (waypoints[closest_wp_idx].pose.pose.position.x, waypoints[closest_wp_idx].pose.pose.position.x, waypoints[closest_wp_idx].pose.pose.position.z))
-            rospy.loginfo("Closest waypoint index:%d" % (closest_wp_idx))
+            # rospy.loginfo("Logging closest waypoint x: %s,y: %s, z: %s" % (waypoints[closest_wp_idx].pose.pose.position.x, waypoints[closest_wp_idx].pose.pose.position.x, waypoints[closest_wp_idx].pose.pose.position.z))
+            # rospy.loginfo("Closest waypoint index:%d" % (closest_wp_idx))
             next_wp_idx = closest_wp_idx
         # Part 2: Check if the nearest point is ahead or behind the car ego pose.
         # 1. Get the car current orientation in Euler angle(yaw/heading) by converting from quaternions
             quaternion = (self.current_pose_msg.pose.orientation.x, self.current_pose_msg.pose.orientation.y, self.current_pose_msg.pose.orientation.z, self.current_pose_msg.pose.orientation.w)
             _, _, yaw = tf.transformations.euler_from_quaternion(quaternion)
-        # 2.
+        # 2. get the difference between two angles ro determine whether a car is behind or ahead of waypoint
             map_x = waypoints[closest_wp_idx].pose.pose.position.x
             map_y = waypoints[closest_wp_idx].pose.pose.position.y
             heading = math.atan2((map_y - ego_pose.position.y), (map_x - ego_pose.position.x))
@@ -141,8 +134,8 @@ class WaypointUpdater(object):
             if angle > (math.pi / 4):
                 next_wp_idx += 1
 
-            self.last_closest_waypoint_idx = next_wp_idx
-            rospy.loginfo("current orientation: %s" % (yaw))
+
+            # rospy.loginfo("current orientation: %s" % (yaw))
 
         return next_wp_idx
 
