@@ -105,8 +105,10 @@ class TLDetector(object):
         min_dist = float("inf")
         min_index = -1
         if self.waypoints is not None:
-            for i, waypoint in enumerate(self.waypoints):
-                dist = hypot(waypoint[0] - pose[0], waypoint[1] - pose[1])
+            if type(pose) != type([]):
+                pose = [pose.position.x, pose.position.y]
+            for i, waypoint in enumerate(self.waypoints.waypoints):
+                dist = hypot(waypoint.pose.pose.position.x - pose[0], waypoint.pose.pose.position.x - pose[1])
                 if dist < min_dist:
                     min_dist = dist
                     min_index = i
