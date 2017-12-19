@@ -5,7 +5,7 @@ import numpy as np
 class TLClassifier(object):
     def __init__(self):
         #TODO load classifier
-        file_name = "frozen_inference_graph.pb"
+        file_name = "/light_classification/frozen_inference_graph.pb"
         self.detection_graph = tf.Graph()
         with self.detection_graph.as_default():
             od_graph_def = tf.GraphDef()
