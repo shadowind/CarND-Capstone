@@ -1,6 +1,7 @@
 from styx_msgs.msg import TrafficLight
 import tensorflow as tf
 import numpy as np
+import cv2
 
 class TLClassifier(object):
     def __init__(self):
@@ -32,6 +33,7 @@ class TLClassifier(object):
 
         """
         #TODO implement light color prediction
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image_expanded = np.expand_dims(image, axis=0)
 
         # Actual detection.
