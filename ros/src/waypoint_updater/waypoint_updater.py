@@ -80,9 +80,10 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
+        #rospy.loginfo("msg.data = %s"% (msg.data))
         if self.cur_red_light_wp_idx != msg.data:
             self.cur_red_light_wp_idx = msg.data if msg.data >=0 else None
-            rospy.loginfo("cur_red_light_wp_idx = %s"% (self.cur_red_light_wp_idx))
+            #rospy.loginfo("cur_red_light_wp_idx = %s"% (self.cur_red_light_wp_idx))
             #update the new WP considering RED light
             self.publish_waypoints()
         
@@ -93,9 +94,11 @@ class WaypointUpdater(object):
 
     def publish_waypoints(self):
         # TODO : This function publishes the next waypoints
-        if self.received_waypoints:
+        if self.received_waypoints and self.load_current_pose:
             next_wp_idx = self.get_next_waypoint()
+            #rospy.loginfo("next_wp_idx = %s"% (next_wp_idx))
             array_final_waypoints = Lane()
+            red_light_idx_in_final_waypoints = None
             for idx_waypt in range(LOOKAHEAD_WPS):
                 # Check if drive more than one round
                 idx_waypt_to_append = (next_wp_idx + idx_waypt) % len(self.base_waypoints.waypoints)
@@ -105,22 +108,32 @@ class WaypointUpdater(object):
                 
                 # Append the waypoint to the array of waypoints.
                 array_final_waypoints.waypoints.append(waypt_to_append)
-
+                
+                #rospy.loginfo("self.cur_red_light_wp_idx = %s, idx_waypt_to_append = %s"% (self.cur_red_light_wp_idx, idx_waypt_to_append))
+                if(self.cur_red_light_wp_idx and (self.cur_red_light_wp_idx == idx_waypt_to_append)):
+                    red_light_idx_in_final_waypoints = idx_waypt
+                    
             #Once the final waypoints is built, check for red-lights and reduce the velocieties of way points to gracefully halt the vehicle at red light
-            if(self.cur_red_light_wp_idx):
-                red_light_idx_in_final_waypoints = array_final_waypoints.index(self.cur_red_light_wp_idx)
-                total_dist_to_red_light = self.distance(array_final_waypoints, 0, red_light_idx_in_final_waypoints)
-                for i in range(len(array_final_waypoints)):
-                    if (i >= red_light_idx_in_final_waypoints):
-                        set_waypoint_velocity(array_final_waypoints, i, 0)#set all way points velocity greater than red light index to zero
-                    else:
-                        #reduce the velocity
-                        dsit = self.distance(array_final_waypoints, i, red_light_idx_in_final_waypoints)#distance to red light
+            if(red_light_idx_in_final_waypoints):
+                total_dist_to_red_light = self.distance(array_final_waypoints.waypoints, 0, red_light_idx_in_final_waypoints)
+                #rospy.loginfo("red_light_idx_in_final_waypoints = %s"%(red_light_idx_in_final_waypoints))
+                for i in range(len(array_final_waypoints.waypoints)):
+                    if (i < red_light_idx_in_final_waypoints):
+                    #reduce the velocity
+                        dist = self.distance(array_final_waypoints.waypoints, i, red_light_idx_in_final_waypoints)#distance to red light
                         decel = 1 # decelerate at 1 m2/s2
                         vel = math.sqrt(2*decel*dist) #based on distance, calcualte velocity and set it in waypoint
-                        if (vel < self.get_waypoint_velocity(array_final_waypoints, i)):
-                            self.set_waypoint_velocity(array_final_waypoints, i, vel) #set velocity
+                        if (vel < self.get_waypoint_velocity(array_final_waypoints.waypoints[i])):
+                            self.set_waypoint_velocity(array_final_waypoints.waypoints, i, vel) #set velocity
+                    elif (i == red_light_idx_in_final_waypoints):
+                        self.set_waypoint_velocity(array_final_waypoints.waypoints, i, 0)
                         
+            
+            #TEST START
+            #if(red_light_idx_in_final_waypoints == 1):
+            #    self.cur_red_light_wp_idx = (next_wp_idx + 200) % len(self.base_waypoints.waypoints)
+            #TEST END
+              
             # Publish the Lane info to the /final_waypoints topic
             self.final_waypoints_pub.publish(array_final_waypoints)
 
