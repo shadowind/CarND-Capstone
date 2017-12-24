@@ -142,7 +142,7 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
-        light = None
+        light = False
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
@@ -153,7 +153,7 @@ class TLDetector(object):
         light_wp = None
         for i, stop_line in enumerate(stop_line_positions):
             distance = hypot(stop_line[0] - self.pose.pose.position.x, stop_line[1] - self.pose.pose.position.y)
-            if distance > 150:
+            if distance > 100:
                 continue
 
             stop_line_wp = self.get_closest_waypoint([stop_line[0], stop_line[1]])
@@ -161,13 +161,12 @@ class TLDetector(object):
                 # ahead
                 if light_wp == None or light_wp > stop_line_wp:
                     light_wp = stop_line_wp
-                    light = self.lights[i]
+                    light = True
 
         if light:
             state = self.get_light_state(light)
             print("Light waypoints: ", light_wp, " | state: ", state)
             return light_wp, state
-        self.waypoints = None
         print("No traffic light")
         return -1, TrafficLight.UNKNOWN
 
