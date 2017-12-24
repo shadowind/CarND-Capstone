@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-
 import rospy
 import tf
 from geometry_msgs.msg import PoseStamped,TwistStamped
 from styx_msgs.msg import Lane, Waypoint
+from std_msgs.msg import Int32
 
 import math
 
@@ -31,6 +31,7 @@ class WaypointUpdater(object):
         rospy.loginfo('Node waypoint_updated started.')
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
 
@@ -50,6 +51,9 @@ class WaypointUpdater(object):
         self.received_waypoints = False
         # Speed limit stored in '/waypoint_loader/velocity' as km/h, for velocity in waypoints data, the unit is m/s, so make the calculation here
         self.speed_limit = rospy.get_param('/waypoint_loader/velocity') * 1000 / 3600
+        
+        #Traffic light related
+        self.cur_red_light_wp_idx = None
 
         self.loop()
         # rospy.spin()
@@ -76,7 +80,12 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+        if self.cur_red_light_wp_idx != msg.data:
+            self.cur_red_light_wp_idx = msg.data if msg.data >=0 else None
+            rospy.loginfo("cur_red_light_wp_idx = %s"% (self.cur_red_light_wp_idx))
+            #update the new WP considering RED light
+            self.publish_waypoints()
+        
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -93,12 +102,25 @@ class WaypointUpdater(object):
 
                 #Get the information about the waypoint that we will append
                 waypt_to_append = self.base_waypoints.waypoints[idx_waypt_to_append]
-                #current_wp_vel = self.get_waypoint_velocity(waypt_to_append)
-                new_waypt_vel = self.speed_limit
-                waypt_to_append.twist.twist.linear.x = new_waypt_vel
+                
                 # Append the waypoint to the array of waypoints.
                 array_final_waypoints.waypoints.append(waypt_to_append)
 
+            #Once the final waypoints is built, check for red-lights and reduce the velocieties of way points to gracefully halt the vehicle at red light
+            if(self.cur_red_light_wp_idx):
+                red_light_idx_in_final_waypoints = array_final_waypoints.index(self.cur_red_light_wp_idx)
+                total_dist_to_red_light = self.distance(array_final_waypoints, 0, red_light_idx_in_final_waypoints)
+                for i in range(len(array_final_waypoints)):
+                    if (i >= red_light_idx_in_final_waypoints):
+                        set_waypoint_velocity(array_final_waypoints, i, 0)#set all way points velocity greater than red light index to zero
+                    else:
+                        #reduce the velocity
+                        dsit = self.distance(array_final_waypoints, i, red_light_idx_in_final_waypoints)#distance to red light
+                        decel = 1 # decelerate at 1 m2/s2
+                        vel = math.sqrt(2*decel*dist) #based on distance, calcualte velocity and set it in waypoint
+                        if (vel < self.get_waypoint_velocity(array_final_waypoints, i)):
+                            self.set_waypoint_velocity(array_final_waypoints, i, vel) #set velocity
+                        
             # Publish the Lane info to the /final_waypoints topic
             self.final_waypoints_pub.publish(array_final_waypoints)
 
