@@ -77,6 +77,7 @@ class WaypointUpdater(object):
     def velocity_cb(self, msg):
         # rospy.loginfo(msg)
         self.current_velocity_x = msg.twist.linear.x
+        #print "Car actual V:", self.current_velocity_x
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
@@ -101,11 +102,12 @@ class WaypointUpdater(object):
             red_light_idx_in_final_waypoints = None
             for idx_waypt in range(LOOKAHEAD_WPS):
                 # Check if drive more than one round
-                idx_waypt_to_append = (next_wp_idx + idx_waypt) % len(self.base_waypoints.waypoints)
+                idx_waypt_to_appen
+                d = (next_wp_idx + idx_waypt) % len(self.base_waypoints.waypoints)
 
                 #Get the information about the waypoint that we will append
                 waypt_to_append = self.base_waypoints.waypoints[idx_waypt_to_append]
-                
+                # print "TARGET SPEED for each point:", self.get_waypoint_velocity(waypt_to_append)
                 # Append the waypoint to the array of waypoints.
                 array_final_waypoints.waypoints.append(waypt_to_append)
                 
@@ -113,22 +115,28 @@ class WaypointUpdater(object):
                 if(self.cur_red_light_wp_idx and (self.cur_red_light_wp_idx == idx_waypt_to_append)):
                     red_light_idx_in_final_waypoints = idx_waypt
                     
+            #for i in range(5):
+            #    print "-------Index:", i," ;target velocity:", self.get_waypoint_velocity(array_final_waypoints.waypoints[i])
+           
             #Once the final waypoints is built, check for red-lights and reduce the velocieties of way points to gracefully halt the vehicle at red light
             if(red_light_idx_in_final_waypoints):
                 total_dist_to_red_light = self.distance(array_final_waypoints.waypoints, 0, red_light_idx_in_final_waypoints)
-                #rospy.loginfo("red_light_idx_in_final_waypoints = %s"%(red_light_idx_in_final_waypoints))
+                rospy.loginfo("Number of wps to stopline %s"%(red_light_idx_in_final_waypoints))
                 for i in range(len(array_final_waypoints.waypoints)):
-                    if (i < red_light_idx_in_final_waypoints):
+                    if (i < red_light_idx_in_final_waypoints-13):
                     #reduce the velocity
                         dist = self.distance(array_final_waypoints.waypoints, i, red_light_idx_in_final_waypoints)#distance to red light
                         decel = 1 # decelerate at 1 m2/s2
                         vel = math.sqrt(2*decel*dist) #based on distance, calcualte velocity and set it in waypoint
                         if (vel < self.get_waypoint_velocity(array_final_waypoints.waypoints[i])):
                             self.set_waypoint_velocity(array_final_waypoints.waypoints, i, vel) #set velocity
-                    elif (i == red_light_idx_in_final_waypoints):
+                    else:
                         self.set_waypoint_velocity(array_final_waypoints.waypoints, i, 0)
-                        
-            
+            else:
+                for i in range(len(array_final_waypoints.waypoints)):
+                    self.set_waypoint_velocity(array_final_waypoints.waypoints, i, self.speed_limit)           
+            # for i in range(5):
+            #    print "-------Index:", i," ;target velocity:", self.get_waypoint_velocity(array_final_waypoints.waypoints[i])
             #TEST START
             #if(red_light_idx_in_final_waypoints == 1):
             #    self.cur_red_light_wp_idx = (next_wp_idx + 200) % len(self.base_waypoints.waypoints)
@@ -189,7 +197,7 @@ class WaypointUpdater(object):
         return dist
 
     def loop(self):
-        rate = rospy.Rate(50)  # 50Hz
+        rate = rospy.Rate(10)  # 50Hz
         while not rospy.is_shutdown():
             self.publish_waypoints()
             rate.sleep()
