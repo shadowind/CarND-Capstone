@@ -70,7 +70,7 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
 
         """
-        if self.time is None or time.time() - self.time >= 0.5:
+        if self.time is None or time.time() - self.time >= 0.1:
             self.time = time.time()
             self.has_image = True
             self.camera_image = msg
@@ -111,7 +111,7 @@ class TLDetector(object):
             if type(pose) != type([]):
                 pose = [pose.position.x, pose.position.y]
             for i, waypoint in enumerate(self.waypoints.waypoints):
-                dist = hypot(waypoint.pose.pose.position.x - pose[0], waypoint.pose.pose.position.x - pose[1])
+                dist = hypot(waypoint.pose.pose.position.x - pose[0], waypoint.pose.pose.position.y - pose[1])
                 if dist < min_dist:
                     min_dist = dist
                     min_index = i
@@ -168,9 +168,10 @@ class TLDetector(object):
 
         if light:
             state = self.get_light_state(light)
-            print("Light waypoints: ", light_wp, " | state: ", state)
+            # print("Light waypoints: ", light_wp, " | state: ", state)
+            print "Traffic Light state:", state
             return light_wp, state
-        print("No traffic light")
+        # print("No traffic light")
         return -1, TrafficLight.UNKNOWN
 
 if __name__ == '__main__':
