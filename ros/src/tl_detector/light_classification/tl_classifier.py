@@ -41,7 +41,7 @@ class TLClassifier(object):
                                     [self.detection_boxes, self.detection_scores, self.detection_classes, self.num_detections],
                                     feed_dict={self.image_tensor: image_expanded})
 
-        if scores[0][0] > 0.9:
+        if scores[0][0] > 0.5:
             if classes[0][0] == 1:
                 return TrafficLight.GREEN
             elif classes[0][0] == 2:
