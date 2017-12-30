@@ -53,9 +53,9 @@ class Controller(object):
         acceleration_update = self.throttle_lilter.filt(acceleration_update)
         
         #if we were to decelerate, calculate the break update
-        if (acceleration_update <= 0.0 and -1.0*acceleration_update >= self.brake_deadband):
-             brake_update = -1.0*acceleration_update * (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY) * self.wheel_radius
-             acceleration_update = 0.0
-            
+        if (acceleration_update < 0.0) :
+            brake_update = -1.0*acceleration_update * (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY) * self.wheel_radius
+            acceleration_update = 0.0
+        print("acceleration_update:", acceleration_update, " brake_update:", brake_update, " steering_update:", steering_update)  
         rospy.loginfo("new control info: throttle: %s, brake: %s, steering: %s" %(acceleration_update, brake_update, steering_update))
         return acceleration_update, brake_update, steering_update
