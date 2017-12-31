@@ -1,3 +1,19 @@
+# Team Artificial Stupidity
+This is the capstone project for Udacity Self-Driving Car Nanodegree.
+
+### Team Members
+Adalberto Gonzalez alebx32@gmail.com
+
+Naresh Aluri aluri.naresh540@gmail.com
+
+Nicholas Moellers nicholas.moellers@gmail.com
+
+Wenzhang Qian wenzhangq@gmail.com
+
+Xiaoyu Sun sun.xiaoyu25@gmail.com
+
+
+### Image stream
 Turn on camera
 >rqt_image_view /image_color
 
