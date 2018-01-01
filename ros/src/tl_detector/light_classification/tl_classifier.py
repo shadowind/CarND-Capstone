@@ -6,7 +6,11 @@ import cv2
 class TLClassifier(object):
     def __init__(self):
         #TODO load classifier
-        file_name = "light_classification/frozen_inference_graph.pb"
+        is_simulation = True
+        if is_simulation:
+            file_name = "light_classification/frozen_inference_graph.pb"
+        else:
+            file_name = "light_classification/real_graph.pb"
         self.detection_graph = tf.Graph()
         with self.detection_graph.as_default():
             od_graph_def = tf.GraphDef()
