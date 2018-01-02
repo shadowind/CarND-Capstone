@@ -102,8 +102,7 @@ class WaypointUpdater(object):
             red_light_idx_in_final_waypoints = None
             for idx_waypt in range(LOOKAHEAD_WPS):
                 # Check if drive more than one round
-                idx_waypt_to_appen
-                d = (next_wp_idx + idx_waypt) % len(self.base_waypoints.waypoints)
+                idx_waypt_to_append = (next_wp_idx + idx_waypt) % len(self.base_waypoints.waypoints)
 
                 #Get the information about the waypoint that we will append
                 waypt_to_append = self.base_waypoints.waypoints[idx_waypt_to_append]
