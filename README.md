@@ -1,3 +1,28 @@
+# Team Artificial Stupidity
+This is the capstone project for Udacity Self-Driving Car Nanodegree.
+
+### Team Members
+Adalberto Gonzalez alebx32@gmail.com
+
+Naresh Aluri aluri.naresh540@gmail.com
+
+Nicholas Moellers nicholas.moellers@gmail.com
+
+Wenzhang Qian wenzhangq@gmail.com
+
+Xiaoyu Sun sun.xiaoyu25@gmail.com
+
+
+### Image stream
+Turn on camera
+>rqt_image_view /image_color
+
+Say the car is accelerating after a stop, not yet at cruise speed, then you send to final_waypoints a list of waypoints (200, by default) with a speed that increses from waypoint to waypoint, with an acceleration you decide. If you determine the car can reach cruise speed within those 200 waypoints, then from that given waypoint they all have constant speed equal to the cruise speed.
+
+Now say you see a traffic light turning red at waypoint #150 out of your list of 200. You already have your list of 200 waypoints to make to car reach cruise speed, and want to change it to stop before the red light instead. Then you set the speed for waypoint #150 to 0, and then you work backward, setting the speed of waypoints #149, #148, #147 and so on, assuming a deceleration of your choice. Working backward, starting from waypoint #150 and velocity 0, you will make it to a waypoint where the calculated speeed would be larger than the speed already set for that waypoint, there you stop modifying the waypoints list for deceleration.
+
+To ensure the car stops at the traffic light, you also need to truncate the list of waypoints after waypoint #150 (the one with speed set to 0). The list will therefore be shorter than 200 elements. As the car approaches the traffic light, the list will become shorter and shorter, until, at the red traffic light, you will send out an empty list to final_waypoints, as long as the light is red.
+
 This is the project repo for the final project of the Udacity Self-Driving Car Nanodegree: Programming a Real Self-Driving Car. For more information about the project, see the project introduction [here](https://classroom.udacity.com/nanodegrees/nd013/parts/6047fe34-d93c-4f50-8336-b70ef10cb4b2/modules/e1a23b06-329a-4684-a717-ad476f0d8dff/lessons/462c933d-9f24-42d3-8bdc-a08a5fc866e4/concepts/5ab4b122-83e6-436d-850f-9f4d26627fd9).
 
 ### Native Installation
