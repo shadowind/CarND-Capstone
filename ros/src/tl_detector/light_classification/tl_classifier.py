@@ -6,7 +6,7 @@ import cv2
 class TLClassifier(object):
     def __init__(self):
         #TODO load classifier
-        is_simulation = True
+        is_simulation = False
         if is_simulation:
             file_name = "light_classification/frozen_inference_graph.pb"
         else:
